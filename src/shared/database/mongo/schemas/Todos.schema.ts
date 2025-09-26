@@ -1,11 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { TodosStatus } from 'src/commons/enums/Todos.enums';
 
 export type TodoDocument = Todo & Document;
 
 @Schema({ timestamps: true })
 export class Todo {
+  @Prop({ required: true })
+  userId: string;
+
   @Prop({ required: true })
   title: string;
 

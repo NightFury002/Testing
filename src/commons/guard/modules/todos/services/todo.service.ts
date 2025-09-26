@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, FilterQuery } from 'mongoose';
 import {
@@ -19,13 +23,13 @@ export class TodosService {
     @InjectModel(Todo.name) private readonly todoModel: Model<TodoDocument>,
   ) {}
 
-  async create(createTodoDto: CreateTodoDto): Promise<Todo> {
-    const created = new this.todoModel(createTodoDto);
+  async create(userId: string, createTodoDto: CreateTodoDto): Promise<Todo> {
+    const created = new this.todoModel({ ...createTodoDto, userId });
     return created.save();
   }
 
-  async findAll(query: QueryTodoDto) {
-    const filter: FilterQuery<TodoDocument> = {};
+  async findAll(userId: string, query: QueryTodoDto) {
+    const filter: FilterQuery<TodoDocument> = { userId };
     if (query.status) filter.status = query.status;
     if (query.search) {
       filter.$or = [
@@ -57,22 +61,29 @@ export class TodosService {
     };
   }
 
-  async findOne(id: string): Promise<Todo> {
+  async findOne(userId: string, id: string): Promise<Todo> {
     const todo = await this.todoModel.findById(id);
     if (!todo) throw new NotFoundException('Todo not found');
+    if (todo.userId !== userId) throw new ForbiddenException('Forbidden');
     return todo;
   }
 
-  async update(id: string, updateTodoDto: UpdateTodoDto): Promise<Todo> {
-    const todo = await this.todoModel.findByIdAndUpdate(id, updateTodoDto, {
-      new: true,
-    });
+  async update(
+    userId: string,
+    id: string,
+    updateTodoDto: UpdateTodoDto,
+  ): Promise<Todo> {
+    const todo = await this.todoModel.findById(id);
     if (!todo) throw new NotFoundException('Todo not found');
-    return todo;
+    if (todo.userId !== userId) throw new ForbiddenException('Forbidden');
+    Object.assign(todo, updateTodoDto);
+    return todo.save();
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.todoModel.findByIdAndDelete(id);
-    if (!result) throw new NotFoundException('Todo not found');
+  async remove(userId: string, id: string): Promise<void> {
+    const todo = await this.todoModel.findById(id);
+    if (!todo) throw new NotFoundException('Todo not found');
+    if (todo.userId !== userId) throw new ForbiddenException('Forbidden');
+    await this.todoModel.findByIdAndDelete(id);
   }
 }
